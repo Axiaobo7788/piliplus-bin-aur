@@ -1,4 +1,10 @@
 # Byte-compiled / optimized / DLL files
+#gen
+*.tar.gz
+src/
+pkg/
+*.pkg.tar.zst
+
 __pycache__/
 *.py[cod]
 *$py.class
