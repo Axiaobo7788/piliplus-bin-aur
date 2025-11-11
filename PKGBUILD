@@ -1,7 +1,7 @@
 # Maintainer: yeah <yeah_yaojiu@163.com>
 
 pkgname=piliplus-bin
-pkgver=1.1.5-pre
+pkgver=1.1.5_pre
 pkgrel=1
 url="https://github.com/bggRGjQaUbCoE/PiliPlus"
 pkgdesc="A Bilibili third-party client built with Flutter. | 使用Flutter开发的BiliBili第三方客户端"
@@ -30,7 +30,7 @@ package() {
   install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/$pkgname.desktop" <<EOF
 [Desktop Entry]
 Name=PiliPlus
-Version=1.1.5-pre
+Version=1.1.5_pre
 Comment=A Bilibili third-party client built with Flutter.
 Exec=piliplus
 Icon=$pkgname
