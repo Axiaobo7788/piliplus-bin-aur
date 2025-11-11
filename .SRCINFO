@@ -1,6 +1,6 @@
 pkgbase = piliplus-bin
 	pkgdesc = A Bilibili third-party client built with Flutter. | 使用Flutter开发的BiliBili第三方客户端
-	pkgver = 1.1.5-pre
+	pkgver = 1.1.5_pre
 	pkgrel = 1
 	url = https://github.com/bggRGjQaUbCoE/PiliPlus
 	arch = x86_64
