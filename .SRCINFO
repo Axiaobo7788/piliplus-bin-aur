@@ -18,5 +18,4 @@ pkgbase = piliplus-bin
 
 	sha256sums_x86_64 = ffd6a6718290fedf0a5d49cc966d3b6441c5a04dff427c7bcc5f1ccfd1aa0d5c
 
-
 pkgname = piliplus-bin
