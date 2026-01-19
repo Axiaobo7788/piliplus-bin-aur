@@ -2,8 +2,6 @@ name: AUR Auto Update
 
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [upstream_release]
   schedule:
     # Every 6 hours
     - cron: "0 */6 * * *"
