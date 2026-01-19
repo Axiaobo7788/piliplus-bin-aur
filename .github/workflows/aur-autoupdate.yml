@@ -35,7 +35,7 @@ jobs:
           scripts/update_pkgbuild_metadata.sh .
 
       - name: Update checksums and .SRCINFO (Arch tools)
-        uses: heyhusen/archlinux-package-action@v3
+        uses: heyhusen/archlinux-package-action@v3.0.0
         with:
           flags: ''
           namcap: false
