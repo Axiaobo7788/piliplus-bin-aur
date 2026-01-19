@@ -38,3 +38,18 @@ You can also run locally on Arch:
 - `scripts/aur_update.sh .`
 
 It will update `PKGBUILD`, checksums, and `.SRCINFO` in-place.
+
+## Auto-update (GitHub Actions)
+
+Workflow: [.github/workflows/aur-autoupdate.yml](.github/workflows/aur-autoupdate.yml)
+
+By default it will:
+
+- Check upstream GitHub Releases on a schedule.
+- Update `PKGBUILD` + regenerate `.SRCINFO`.
+- Commit and push back to this GitHub repo.
+
+To also push to AUR, set GitHub repository **Secrets**:
+
+- `AUR_REPO`: `aur@aur.archlinux.org:piliplus-bin.git`
+- `AUR_SSH_PRIVATE_KEY`: SSH private key contents used to push to AUR

@@ -1,0 +1,65 @@
+name: AUR Auto Update
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every 6 hours
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run update script
+        run: |
+          chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh
+          scripts/aur_update.sh .
+
+      - name: Commit changes (if any)
+        run: |
+          if git diff --quiet; then
+            echo "No update needed."
+            exit 0
+          fi
+
+          git add PKGBUILD .SRCINFO
+          ver=$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2)
+          git commit -m "Update to ${ver}"
+
+      - name: Push back to GitHub
+        if: ${{ success() }}
+        run: |
+          # If there was no commit, pushing is a no-op.
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - name: Push to AUR (optional)
+        env:
+          AUR_REPO: ${{ secrets.AUR_REPO }}
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "${AUR_REPO}" || -z "${AUR_SSH_PRIVATE_KEY}" ]]; then
+            echo "AUR secrets not set; skipping AUR push."
+            exit 0
+          fi
+          scripts/aur_push_aur.sh . master
