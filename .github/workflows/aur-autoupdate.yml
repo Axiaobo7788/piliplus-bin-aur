@@ -2,6 +2,8 @@ name: AUR Auto Update
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [upstream_release]
   schedule:
     # Every 6 hours
     - cron: "0 */6 * * *"
@@ -36,7 +38,7 @@ jobs:
           chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh
           scripts/aur_update.sh .
 
-      - name: Commit changes (if any)
+      - name: Commit changes
         run: |
           if git diff --quiet; then
             echo "No update needed."
@@ -53,7 +55,7 @@ jobs:
           # If there was no commit, pushing is a no-op.
           git push origin HEAD:${GITHUB_REF_NAME}
 
-      - name: Push to AUR (optional)
+      - name: Push to AUR
         env:
           AUR_REPO: ${{ secrets.AUR_REPO }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}

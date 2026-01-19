@@ -53,3 +53,9 @@ To also push to AUR, set GitHub repository **Secrets**:
 
 - `AUR_REPO`: `aur@aur.archlinux.org:piliplus-bin.git`
 - `AUR_SSH_PRIVATE_KEY`: SSH private key contents used to push to AUR
+
+Notes:
+
+- AUR push only syncs `PKGBUILD`, `.SRCINFO`, `.gitignore` (CI/workflow/scripts stay in this GitHub repo).
+- GitHub Actions cannot be triggered directly by releases from another repository.
+	Use the schedule (polling), or trigger this workflow via `repository_dispatch` with type `upstream_release` from an external service/script.
