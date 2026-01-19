@@ -19,12 +19,15 @@ ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
 
 export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
 
-pushd "$package_dir" >/dev/null
+package_dir_abs="$(cd "$package_dir" && pwd)"
+
+pushd "$package_dir_abs" >/dev/null
 
 if ! git remote get-url aur >/dev/null 2>&1; then
   git remote add aur "$AUR_REPO"
 else
   git remote set-url aur "$AUR_REPO"
+  git remote set-url --push aur "$AUR_REPO" || true
 fi
 
 # Sync only the minimal AUR files, without pushing CI/scripts to AUR.
@@ -52,10 +55,15 @@ pushd "$tmp_worktree" >/dev/null
 git rm -r --ignore-unmatch . >/dev/null 2>&1 || true
 
 for f in PKGBUILD .SRCINFO .gitignore; do
-  if git -C "$package_dir" cat-file -e "${src_ref}:${f}" 2>/dev/null; then
-    git -C "$package_dir" show "${src_ref}:${f}" > "$f"
-  elif [[ -f "$package_dir/$f" ]]; then
-    cp -f "$package_dir/$f" "$f"
+  # Prefer the current working tree content (what CI just generated).
+  if [[ -f "$package_dir_abs/$f" ]]; then
+    cp -f "$package_dir_abs/$f" "$f"
+    continue
+  fi
+
+  # Fallback: read from a git ref if the file isn't present on disk.
+  if git -C "$package_dir_abs" cat-file -e "${src_ref}:${f}" 2>/dev/null; then
+    git -C "$package_dir_abs" show "${src_ref}:${f}" > "$f"
   fi
 done
 
@@ -73,10 +81,9 @@ if git diff --cached --quiet; then
 else
   git commit -m "$msg"
   git push aur "HEAD:${branch}"
+  echo "Pushed to AUR: $AUR_REPO ($branch)"
 fi
 
 popd >/dev/null
 
 popd >/dev/null
-
-echo "Pushed to AUR: $AUR_REPO ($branch)"
