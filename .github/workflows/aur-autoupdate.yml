@@ -19,25 +19,29 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install tools (ubuntu)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run update in Arch container
+      - name: Update pkgver/source from upstream
         run: |
-          docker run --rm \
-            -v "${GITHUB_WORKSPACE}:/work" \
-            -w /work \
-            archlinux:base \
-            bash -lc '
-              set -euo pipefail
-              pacman -Syu --noconfirm
-              pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
-              useradd -m -u 1000 builder || true
-              chown -R builder:builder /work
-              su - builder -c "cd /work && chmod +x scripts/aur_update.sh && scripts/aur_update.sh ."
-            '
+          chmod +x scripts/update_pkgbuild_metadata.sh
+          scripts/update_pkgbuild_metadata.sh .
+
+      - name: Update checksums and .SRCINFO (Arch tools)
+        uses: heyhusen/archlinux-package-action@v3
+        with:
+          flags: ''
+          namcap: false
+          updpkgsums: true
+          srcinfo: true
+          update_archlinux_keyring: true
 
       - name: Commit changes
         run: |
