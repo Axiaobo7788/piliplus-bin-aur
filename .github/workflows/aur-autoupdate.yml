@@ -31,8 +31,7 @@ jobs:
 
       - name: Update pkgver/source from upstream
         run: |
-          chmod +x scripts/update_pkgbuild_metadata.sh
-          scripts/update_pkgbuild_metadata.sh .
+          bash scripts/update_pkgbuild_metadata.sh .
 
       - name: Update checksums and .SRCINFO (Arch tools)
         uses: heyhusen/archlinux-package-action@v3.0.0
@@ -44,23 +43,27 @@ jobs:
           update_archlinux_keyring: true
 
       - name: Commit changes
+        id: commit
         run: |
-          if git diff --quiet; then
+          git add PKGBUILD .SRCINFO .gitignore
+
+          if git diff --cached --quiet; then
             echo "No update needed."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          git add PKGBUILD .SRCINFO
           ver=$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2)
           git commit -m "Update to ${ver}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Push back to GitHub
-        if: ${{ success() }}
+        if: ${{ steps.commit.outputs.changed == 'true' }}
         run: |
-          # If there was no commit, pushing is a no-op.
           git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Push to AUR
+        if: ${{ steps.commit.outputs.changed == 'true' }}
         env:
           AUR_REPO: ${{ secrets.AUR_REPO }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
@@ -69,9 +72,4 @@ jobs:
             echo "AUR secrets not set; skipping AUR push."
             exit 0
           fi
-          if git diff --quiet HEAD~1..HEAD 2>/dev/null; then
-            echo "No new commit detected; skipping AUR push."
-            exit 0
-          fi
-          chmod +x scripts/aur_push_aur.sh
-          scripts/aur_push_aur.sh . master
+          bash scripts/aur_push_aur.sh . master
