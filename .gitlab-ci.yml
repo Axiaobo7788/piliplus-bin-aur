@@ -1,0 +1,50 @@
+stages:
+  - update
+
+variables:
+  GIT_STRATEGY: fetch
+  GIT_SUBMODULE_STRATEGY: none
+
+# Required CI/CD variables (Settings -> CI/CD -> Variables):
+# - AUR_REPO: aur@aur.archlinux.org:piliplus-bin.git
+# - AUR_SSH_PRIVATE_KEY: private SSH key for AUR push
+# Optional:
+# - GITLAB_PUSH_TOKEN: a PAT with write_repository if you want CI to push commits back to GitLab
+# - PUSH_BACK_TO_GITLAB: "1" to enable pushing commits back
+
+aur_autoupdate:
+  stage: update
+  image: archlinux:base
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "pipeline"
+  before_script:
+    - pacman -Syu --noconfirm
+    - pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
+    - git config --global user.name "GitLab CI"
+    - git config --global user.email "ci@example.invalid"
+  script:
+    - chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh
+    - scripts/aur_update.sh .
+
+    # If nothing changed, exit successfully.
+    - |
+      if git diff --quiet; then
+        echo "No update needed."
+        exit 0
+      fi
+
+    - git add PKGBUILD .SRCINFO
+    - git commit -m "Update to $(grep -E '^pkgver=' PKGBUILD | cut -d= -f2)"
+
+    # Optional: push commit back to GitLab repo
+    - |
+      if [[ "${PUSH_BACK_TO_GITLAB:-0}" == "1" ]]; then
+        : "${GITLAB_PUSH_TOKEN:?Set GITLAB_PUSH_TOKEN to push back to GitLab}"
+        git remote set-url origin "https://gitlab-ci-token:${GITLAB_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+        git push origin "HEAD:${CI_DEFAULT_BRANCH}"
+      fi
+
+    # Always push to AUR when there is an update
+    - scripts/aur_push_aur.sh . master
