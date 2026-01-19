@@ -12,8 +12,6 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    container:
-      image: archlinux:base
 
     steps:
       - name: Checkout
@@ -21,37 +19,42 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
-
-      - name: Create non-root build user
-        run: |
-          useradd -m -u 1000 builder || true
-          chown -R builder:builder "$GITHUB_WORKSPACE"
-
       - name: Configure git
         run: |
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git config user.name \"github-actions[bot]\""
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\""
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Run update script
+      - name: Run update in Arch container
         run: |
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh"
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && scripts/aur_update.sh ."
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            archlinux:base \
+            bash -lc '
+              set -euo pipefail
+              pacman -Syu --noconfirm
+              pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
+              useradd -m -u 1000 builder || true
+              chown -R builder:builder /work
+              su - builder -c "cd /work && chmod +x scripts/aur_update.sh && scripts/aur_update.sh ."
+            '
 
       - name: Commit changes
         run: |
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && if git diff --quiet; then echo 'No update needed.'; exit 0; fi"
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git add PKGBUILD .SRCINFO"
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && ver=\$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2) && git commit -m \"Update to \${ver}\""
+          if git diff --quiet; then
+            echo "No update needed."
+            exit 0
+          fi
+
+          git add PKGBUILD .SRCINFO
+          ver=$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2)
+          git commit -m "Update to ${ver}"
 
       - name: Push back to GitHub
         if: ${{ success() }}
         run: |
           # If there was no commit, pushing is a no-op.
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git push origin HEAD:${GITHUB_REF_NAME}"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Push to AUR
         env:
@@ -62,4 +65,9 @@ jobs:
             echo "AUR secrets not set; skipping AUR push."
             exit 0
           fi
-          su - builder -c "cd \"$GITHUB_WORKSPACE\" && scripts/aur_push_aur.sh . master"
+          if git diff --quiet HEAD~1..HEAD 2>/dev/null; then
+            echo "No new commit detected; skipping AUR push."
+            exit 0
+          fi
+          chmod +x scripts/aur_push_aur.sh
+          scripts/aur_push_aur.sh . master
