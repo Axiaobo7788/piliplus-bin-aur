@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # Every 6 hours
-    - cron: "0 */6 * * *"
+    - cron: "0 */12 * * *"
 
 permissions:
   contents: write
@@ -26,32 +26,32 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --needed --noconfirm git base-devel pacman-contrib jq curl openssh
 
+      - name: Create non-root build user
+        run: |
+          useradd -m -u 1000 builder || true
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
       - name: Configure git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git config user.name \"github-actions[bot]\""
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\""
 
       - name: Run update script
         run: |
-          chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh
-          scripts/aur_update.sh .
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && chmod +x scripts/aur_update.sh scripts/aur_push_aur.sh"
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && scripts/aur_update.sh ."
 
       - name: Commit changes
         run: |
-          if git diff --quiet; then
-            echo "No update needed."
-            exit 0
-          fi
-
-          git add PKGBUILD .SRCINFO
-          ver=$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2)
-          git commit -m "Update to ${ver}"
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && if git diff --quiet; then echo 'No update needed.'; exit 0; fi"
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git add PKGBUILD .SRCINFO"
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && ver=\$(grep -E '^pkgver=' PKGBUILD | cut -d= -f2) && git commit -m \"Update to \${ver}\""
 
       - name: Push back to GitHub
         if: ${{ success() }}
         run: |
           # If there was no commit, pushing is a no-op.
-          git push origin HEAD:${GITHUB_REF_NAME}
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && git push origin HEAD:${GITHUB_REF_NAME}"
 
       - name: Push to AUR
         env:
@@ -62,4 +62,4 @@ jobs:
             echo "AUR secrets not set; skipping AUR push."
             exit 0
           fi
-          scripts/aur_push_aur.sh . master
+          su - builder -c "cd \"$GITHUB_WORKSPACE\" && scripts/aur_push_aur.sh . master"
