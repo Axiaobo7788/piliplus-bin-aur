@@ -4,7 +4,7 @@
 pkgname=piliplus-bin
 _pkgname=piliplus
 pkgver=2.1.2.3
-pkgrel=2
+pkgrel=1
 url="https://github.com/bggRGjQaUbCoE/PiliPlus"
 pkgdesc="A Bilibili third-party client built with Flutter. | 使用Flutter开发的BiliBili第三方客户端"
 arch=('x86_64')
