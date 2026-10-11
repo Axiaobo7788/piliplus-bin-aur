@@ -63,7 +63,7 @@ jobs:
           git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Push to AUR
-        if: ${{ steps.commit.outputs.changed == 'true' }}
+        if: ${{ steps.commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' }}
         env:
           AUR_REPO: ${{ secrets.AUR_REPO }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
