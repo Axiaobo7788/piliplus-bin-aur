@@ -2,9 +2,12 @@ name: AUR Auto Update
 
 on:
   workflow_dispatch:
-  schedule:
-    # Every 6 hours
-    - cron: "0 */12 * * *"
+    inputs:
+      force_aur_push:
+        description: Push current package state to AUR even when no update is detected
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -15,26 +18,29 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Install tools (ubuntu)
+      - name: Install metadata tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          sudo apt-get install -y --no-install-recommends jq
 
       - name: Update pkgver/source from upstream
+        id: metadata
         run: |
           bash scripts/update_pkgbuild_metadata.sh .
 
-      - name: Update checksums and .SRCINFO (Arch tools)
-        uses: heyhusen/archlinux-package-action@v3.0.0
+          if git diff --quiet -- PKGBUILD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update checksums and .SRCINFO
+        if: ${{ steps.metadata.outputs.changed == 'true' }}
+        uses: heyhusen/archlinux-package-action@v3.0.1
         with:
           flags: ''
           namcap: false
@@ -42,8 +48,15 @@ jobs:
           srcinfo: true
           update_archlinux_keyring: true
 
+      - name: Configure git
+        if: ${{ steps.metadata.outputs.changed == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Commit changes
         id: commit
+        if: ${{ steps.metadata.outputs.changed == 'true' }}
         run: |
           git add PKGBUILD .SRCINFO .gitignore
 
@@ -63,7 +76,7 @@ jobs:
           git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Push to AUR
-        if: ${{ steps.commit.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' }}
+        if: ${{ steps.commit.outputs.changed == 'true' || inputs.force_aur_push == true }}
         env:
           AUR_REPO: ${{ secrets.AUR_REPO }}
           AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
